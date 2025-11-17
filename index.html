@@ -1629,9 +1629,16 @@ const transactionsListEl = document.getElementById('transactionsList');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const refreshBalancesBtn = document.getElementById('refreshBalancesBtn');
 
-/* ===========================
-   Fingerprint + PIN PWA-ready
-   =========================== */
+/* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
+
+function showFingerprintSetup() {
+  fingerprintSetupModal.classList.add('active');
+}
+
+function closeFingerprintSetup() {
+  fingerprintSetupModal.classList.remove('active');
+}
+  
 
 function isWebAuthnSupported() {
     return !!window.PublicKeyCredential;
