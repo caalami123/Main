@@ -1674,19 +1674,17 @@ networkBaseBtn.addEventListener("click", () => switchNetwork("Base"));
       // Update tokens per network...
   }
 
-/* ========== Fingerprint Setup Function ========== */
+        /* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
+
 function showFingerprintSetup() {
-  // Check if fingerprint is already enabled
-  if (localStorage.getItem("laam_fingerprint_enabled") === "true") {
-    console.log("Fingerprint already enabled");
-    return;
-  }
-  
-  // Show fingerprint setup modal after a short delay
-  setTimeout(() => {
-    fingerprintSetupModal.classList.add('active');
-  }, 1500);
+  fingerprintSetupModal.classList.add('active');
 }
+
+function closeFingerprintSetup() {
+  fingerprintSetupModal.classList.remove('active');
+}
+  
+
 function isWebAuthnSupported() {
     return !!window.PublicKeyCredential;
 }
@@ -1828,8 +1826,9 @@ async function unlockWallet_PWA() {
         alert("Fingerprint ma taageersana. Geli PIN si aad u furto wallet-ka.");
         showScreen('lock');
     }
-}
-
+  }
+  
+        
 // Event listeners for fingerprint setup
 fingerprintSetupConfirm.addEventListener("click", async () => {
   try {
