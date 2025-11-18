@@ -1694,7 +1694,8 @@ function updateNetworkHeader() {
 }
 
 
-        /* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
+
+/* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
 
 function showFingerprintSetup() {
   fingerprintSetupModal.classList.add('active');
@@ -1704,7 +1705,9 @@ function closeFingerprintSetup() {
   fingerprintSetupModal.classList.remove('active');
 }
 
-/* ---- Base64 + Buffer helpers ---- */
+/* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
+
+// --- Base64 helpers ---
 function bufToBase64Url(buffer) {
   return btoa(String.fromCharCode(...new Uint8Array(buffer)))
     .replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
@@ -1717,69 +1720,55 @@ function base64UrlToBuf(base64url) {
   return Uint8Array.from(str, c => c.charCodeAt(0)).buffer;
 }
 
-/* ---- Key derivation for AES-GCM from credential ID ---- */
+// --- Key derivation ---
 async function deriveKeyFromCredentialId(credId) {
   const idBuf = base64UrlToBuf(credId);
   const hash = await crypto.subtle.digest('SHA-256', idBuf);
   return crypto.subtle.importKey("raw", hash, { name: "AES-GCM" }, false, ["encrypt", "decrypt"]);
 }
 
-/* ---- AES-GCM ENCRYPT ---- */
+// --- AES Encrypt/Decrypt ---
 async function encryptPrivKey(priv, key) {
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const enc = new TextEncoder().encode(priv);
   const cipher = await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, enc);
-
   const joined = new Uint8Array(iv.byteLength + cipher.byteLength);
   joined.set(iv);
   joined.set(new Uint8Array(cipher), iv.byteLength);
-  
   return bufToBase64Url(joined.buffer);
 }
 
-/* ---- AES-GCM DECRYPT ---- */
 async function decryptPrivKey(data, key) {
-  const buf = base64UrlToBuf(data);
-  const bytes = new Uint8Array(buf);
-  const iv = bytes.slice(0, 12);
-  const cipher = bytes.slice(12);
-
-  const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
-  return new TextDecoder().decode(plain);
+  try {
+    const buf = base64UrlToBuf(data);
+    const bytes = new Uint8Array(buf);
+    const iv = bytes.slice(0, 12);
+    const cipher = bytes.slice(12);
+    const plain = await crypto.subtle.decrypt({ name: "AES-GCM", iv }, key, cipher);
+    return new TextDecoder().decode(plain);
+  } catch(e) {
+    console.error("Decryption failed:", e);
+    return null;
+  }
 }
 
-/* ============================================================
-   ENABLE FINGERPRINT (Register WebAuthn Credential)
-   ============================================================ */
+// --- Enable Fingerprint ---
 async function enableFingerprint_WebAuthn() {
   try {
-    if (!currentPrivateKey) {
-      alert("Marka hore wallet-ka fur ama geli private key.");
-      return;
-    }
-
+    if (!currentPrivateKey) { alert("Fur wallet-ka marka hore."); return; }
     const challenge = crypto.getRandomValues(new Uint8Array(32));
-
     const publicKey = {
       challenge,
       rp: { name: "Laam Wallet" },
-      user: {
-        id: new Uint8Array(16),
-        name: "laam_user",
-        displayName: "Laam User"
-      },
+      user: { id: new Uint8Array(16), name: "laam_user", displayName: "Laam User" },
       pubKeyCredParams: [{ type: "public-key", alg: -7 }],
       authenticatorSelection: { userVerification: "required" },
       timeout: 60000,
       attestation: "none"
     };
-
     const credential = await navigator.credentials.create({ publicKey });
-
     const credId = bufToBase64Url(credential.rawId);
-
     const aesKey = await deriveKeyFromCredentialId(credId);
-
     const encryptedPriv = await encryptPrivKey(currentPrivateKey, aesKey);
 
     localStorage.setItem("laam_fingerprint_enabled", "true");
@@ -1788,16 +1777,14 @@ async function enableFingerprint_WebAuthn() {
 
     alert("Fingerprint biometric si guul ah ayaa loo diiwaan geliyay!");
     updateFingerprintUI_WebAuthn();
-    closeFingerprintSetup();
+    fingerprintSetupModal.classList.remove('active');
 
   } catch (e) {
     alert("Fingerprint enable failed: " + e.message);
   }
 }
 
-/* ============================================================
-   UNLOCK WALLET USING (Browser Fingerprint / WebAuthn)
-   ============================================================ */
+// --- Unlock wallet via fingerprint ---
 async function unlockWithFingerprint_WebAuthn() {
   try {
     const credId = localStorage.getItem("laam_webauthn_cred_id");
@@ -1813,7 +1800,6 @@ async function unlockWithFingerprint_WebAuthn() {
     fingerprintStatus.textContent = "Sug fingerprint...";
 
     const challenge = crypto.getRandomValues(new Uint8Array(32));
-
     const publicKey = {
       challenge,
       allowCredentials: [{ type: "public-key", id: base64UrlToBuf(credId) }],
@@ -1826,48 +1812,45 @@ async function unlockWithFingerprint_WebAuthn() {
     const key = await deriveKeyFromCredentialId(credId);
     const priv = await decryptPrivKey(encryptedPriv, key);
 
-    setCurrentWallet(localStorage.getItem("laam_wallet_address"), priv);
+    if (priv && localStorage.getItem("laam_wallet_address")) {
+      // ✅ Set wallet directly without PIN
+      setCurrentWallet(localStorage.getItem("laam_wallet_address"), priv);
 
-    fingerprintStatus.textContent = "Wallet unlocked!";
-    fingerprintStatus.className = "fingerprint-status fingerprint-success";
+      fingerprintStatus.textContent = "Wallet unlocked!";
+      fingerprintStatus.className = "fingerprint-status fingerprint-success";
 
-    document.getElementById("homeNavigation").style.display = "flex";
-    document.querySelector(".bottom-nav").style.display = "flex";
-    showScreen("dashboard");
+      // Show navigation & dashboard
+      document.getElementById("homeNavigation").style.display = "flex";
+      document.querySelector(".bottom-nav").style.display = "flex";
+      document.querySelector(".trade-sub-nav").style.display = "flex";
+
+      showScreen("dashboard");
+    } else {
+      fingerprintStatus.textContent = "Wallet data ma helin";
+      fingerprintStatus.className = "fingerprint-status fingerprint-error";
+    }
 
   } catch (e) {
+    console.error("Fingerprint unlock error:", e);
     fingerprintStatus.textContent = "Fingerprint failed";
     fingerprintStatus.className = "fingerprint-status fingerprint-error";
   } finally {
     fingerprintScanner.classList.remove("active");
   }
-}
+  }
 
-/* ============================================================
-   Update fingerprint UI (Show/Hide)
-   ============================================================ */
+// --- Update Fingerprint UI ---
 function updateFingerprintUI_WebAuthn() {
   const enabled = localStorage.getItem("laam_fingerprint_enabled") === "true";
   fingerprintSection.style.display = enabled ? "block" : "none";
 }
 
+// --- Event listeners ---
+fingerprintSetupConfirm.addEventListener("click", enableFingerprint_WebAuthn);
+fingerprintScanner.addEventListener("click", unlockWithFingerprint_WebAuthn);
 
-// Event listeners for fingerprint setup
-fingerprintSetupConfirm.addEventListener("click", async () => {
-  try {
-    await enableFingerprint_PWA();
-    // Modal will be closed in enableFingerprint_PWA function
-  } catch (e) {
-    console.error("Fingerprint setup error:", e);
-    alert("Fingerprint setup failed: " + e.message);
-  }
-});
-
-fingerprintSetupCancel.addEventListener("click", () => {
-  fingerprintSetupModal.classList.remove('active');
-  console.log("Fingerprint setup skipped");
-});
-
+                               
+        
 /* ========== Confirmation Modal Functions ========== */
 function openForgotPinModal() {
   forgotPinModal.classList.add('active');
