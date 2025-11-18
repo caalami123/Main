@@ -27,7 +27,7 @@
     --warning: #fdcb6e;
     --dark: #2d3436;
     --light: #f8f9fa;
-    --gray: #636e72;
+    --gray: #636e72; 
     --gray-light: #dfe6e9;
     --white: #ffffff;
     --shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
@@ -1660,9 +1660,7 @@ const transactionsListEl = document.getElementById('transactionsList');
 const clearHistoryBtn = document.getElementById('clearHistoryBtn');
 const refreshBalancesBtn = document.getElementById('refreshBalancesBtn');
    
- 
-
-/* ========== Network Switching ========== */
+ /* ========== Network Switching ========== */
 function switchNetwork(network) {
     currentNetwork = network;
     currentWeb3 = network === "BSC" ? web3BSC : web3Base;
@@ -1675,11 +1673,9 @@ function switchNetwork(network) {
 
     // Update network header
     updateNetworkHeader();
-    
-    // Refresh dashboard balances
-    if(currentAddress) {
-        updateWalletUI();
-    }
+
+    // ❌ Ha wicin updateWalletUI halkaan — waxuu sababayaa duplicate rows
+    // Auto-refresh ayaa si toos ah u refresh-gareynaya
 }
 
 // Event listeners for buttons
@@ -1691,8 +1687,7 @@ function updateNetworkHeader() {
     const headerEl = document.querySelector("#leftCol .wallet-header h3");
     let netLabel = currentNetwork === "BSC" ? "BSC Mainnet" : "Base Mainnet";
     headerEl.innerHTML = `<i class="fas fa-wallet"></i> Laam Wallet (${netLabel})`;
-}
-
+  }
 
 
 /* ========== Fingerprint Functions (Real WebAuthn Biometric) ========== */
@@ -2177,9 +2172,8 @@ function showScreen(screenName) {
       accountGeneratedScreen.classList.add('active');
       break;
     case 'dashboard':
-      mainDashboard.classList.add('active');
-      updateWalletUI();
-      break;
+  mainDashboard.classList.add('active');
+  break;
     case 'lock':
       lockScreen.classList.add('active');
       clearPin();
@@ -2202,10 +2196,11 @@ function lockWallet() {
 
   showScreen('lock');
 }
-
+  
 function unlockWallet(pin) {
   const wallet = loadEncryptedWallet(pin);
   if (wallet) {
+
     setCurrentWallet(wallet.address, wallet.privateKey);
 
     // 🔥 Navigation ON
@@ -2213,12 +2208,17 @@ function unlockWallet(pin) {
     document.querySelector(".bottom-nav").style.display = "flex";
     document.querySelector(".trade-sub-nav").style.display = "flex";
 
+    // Marka screen la badalayo HAL update keliya
     showScreen('dashboard');
+
+    // 🔥 KU DAR: Update UI hal mar (prevent duplicate rows)
+    updateWalletUI();
+
     return true;
   }
+
   return false;
 }
-
 
 /* ========== Auto Refresh Functions ========== */
 async function autoRefreshLoop() {
